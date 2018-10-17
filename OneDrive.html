@@ -1,0 +1,110 @@
+
+<link type="text/css" rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script> 
+<script type="text/javascript" src="https://secure.aadcdn.microsoftonline-p.com/lib/1.0.10/js/adal.min.js"></script>
+
+
+  	
+
+
+<div class="container-fluide">
+<h1>OneDrive</h1>
+
+<table id="oneDriveData" class="table table-striped"> 
+	<thead>
+		<tr>
+		   <th>Folder OR File</th>
+		   <th>Name</th>
+		   <th>Created Date</th>
+		   <th>Modify Date</th>
+		</tr>
+	</thead>
+	<tbody></tbody>
+</table>
+</div>
+
+<script>
+
+$(function(){	
+    console.log('Loading'); 
+	
+	var accessToken = "";
+	var space = 20;
+	var child = 0;
+	var configOptions = {
+        clientId: "bf4aaa94-f2a8-4009-808a-890ceea5dd6d",     //Required clientId to get accessToken
+        postLogoutRedirectUri: window.location.origin,
+		redirectURI: window.location.href, // Your page link
+		//cacheLocation: "localStorage",  //Optional to save data in localStorage by defualt it store in session storage
+    }
+
+    window.authContext = new AuthenticationContext(configOptions);
+
+    
+	if(authContext.isCallback(window.location.hash))
+	{
+      authContext.handleWindowCallback();       //Using this we can get user from getCachedUser() after login
+	}
+	
+		var user = authContext.getCachedUser();		
+		if(user == null){
+			authContext.login();   //Login if user not found in getCachedUser
+		}
+		else
+		{
+			//setTimeout(function(){ getToken(); }, 1000);
+			//setTimeout(function(){ getUser(); }, 3000);
+			 getToken();   
+			
+		}
+	
+    function getToken(){    	//get accessToken 	
+			authContext.acquireToken("https://graph.microsoft.com",function(error, token){
+			console.log("Error =" +error);
+			console.log("Token =" +token);
+			accessToken  = token;
+			if(accessToken && accessToken != "")
+			{
+			   getOnedriveUser();			   
+			}
+        })
+    }	
+
+ function getOnedriveUser(URL){		// get data based on passed url	
+
+		$.ajax({
+			url: URL?URL:"https://graph.microsoft.com/v1.0/me/drive/root/children",			
+			type: 'GET',			
+			headers: {
+		        "Authorization": "Bearer " + accessToken
+			},
+			async:false,
+			success: function(data) {
+				allData = data.value;
+				$.each(allData,function(e,item){
+				item.parentReference.path.split('root:')[1].split('/').length == 0?child = 0:child = item.parentReference.path.split('root:')[1].split('/').length;
+					
+					$('#oneDriveData tbody').append('<tr><td'+(URL?' style="padding-left:'+space*child+'px"':"")+'>'+
+											 (item.file?"<i class='fa fa-file'></i>":"<i class='fa fa-folder'></i>")+'</td>'+
+											 '<td>'+(item.name?item.name:" ")+'</td>'+
+											 '<td>'+new Date(item.lastModifiedDateTime).format('dd/MM/yyyy')+'</td>'+
+											 '<td>'+new Date(item.lastModifiedDateTime).format('dd/MM/yyyy')+'</td></tr>');
+										if(item.folder)
+										{
+											//child++;
+											var url = "https://graph.microsoft.com/v1.0/me/drive/items/"+item.id+"/children";
+											getOnedriveUser(url);
+										}	
+				})				    
+			},
+			error: function(error) 
+			{ 
+				alert("Error" + error);
+			}
+		});//ajax
+    }//get user
+})
+
+</script>
